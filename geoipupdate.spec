@@ -4,10 +4,10 @@
 
 # https://github.com/maxmind/geoipupdate
 %global goipath	github.com/maxmind/geoipupdate
-Version:	4.6.0
 
 Name:		geoipupdate
-Release:	1%{?dist}
+Version:	4.6.0
+Release:	2%{?dist}
 Summary:	Update GeoIP2 binary databases from MaxMind
 
 License:	ASL 2.0 or MIT
@@ -50,7 +50,7 @@ export GOPATH="%{gobuilddir}:${GOPATH:+${GOPATH}:}%{?gopath}"
 
 %build
 cd %{gobuilddir}/src/%{goipath}/cmd/geoipupdate
-export LDFLAGS='-X main.defaultConfigFile=%{_sysconfdir}/GeoIP.conf -X main.defaultDatabaseDirectory=%{_datadir}/GeoIP '
+export LDFLAGS='-X main.defaultConfigFile=%{_sysconfdir}/GeoIP.conf -X main.defaultDatabaseDirectory=%{_datadir}/GeoIP -X main.version=%{version}'
 go build \
   -trimpath \
   -buildmode=pie \
