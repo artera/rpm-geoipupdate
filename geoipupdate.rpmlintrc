@@ -1,0 +1,15 @@
+from Config import *
+
+# Documentation for cron packages is the package %description
+addFilter("no-documentation")
+
+# Cron scripts can be edited by end users
+addFilter("executable-marked-as-config-file /etc/cron.weekly/geoipupdate")
+
+# geoipupdate-cron6 is obsolete (upstream stopped providing free IPv6 databases) and not replaced
+addFilter("obsolete-not-provided geoipupdate-cron6")
+
+# Technical term
+addFilter("spelling-error Summary\(en_US\) Cron -> ")
+addFilter("spelling-error %description -l en_US Cron -> ")
+
