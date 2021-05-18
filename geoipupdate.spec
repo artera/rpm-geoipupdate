@@ -1,46 +1,38 @@
 %undefine _missing_build_ids_terminate_build
+%global debug_package %{nil}
 %global gopath %{_datadir}/gocode
 %global gobuilddir %{_builddir}/_build
 
 # https://github.com/maxmind/geoipupdate
 %global goipath	github.com/maxmind/geoipupdate
 
-Name:		geoipupdate
-Version:	4.6.0
-Release:	2%{?dist}
-Summary:	Update GeoIP2 binary databases from MaxMind
+Name:    geoipupdate
+Version: 4.7.1
+Release: 1%{?dist}
+Summary: Update GeoIP2 binary databases from MaxMind
 
-License:	ASL 2.0 or MIT
-URL:		http://dev.maxmind.com/geoip/geoipupdate/
-Source0:	https://github.com/maxmind/geoipupdate/archive/v%{version}/%{name}-%{version}.tar.gz
-Source1:	geoipupdate.cron
+License: ASL 2.0 or MIT
+URL:     https://dev.maxmind.com/geoip/geoipupdate/
+Source0: https://github.com/maxmind/geoipupdate/archive/v%{version}/%{name}-%{version}.tar.gz
+Source1: geoipupdate.service
+Source2: geoipupdate.timer
 
+BuildRequires: systemd-rpm-macros
 BuildRequires: golang
-BuildRequires:	coreutils
-BuildRequires:	crontabs
-BuildRequires:	make
-BuildRequires:	pandoc
-BuildRequires:	perl-interpreter
-BuildRequires:	perl(File::Temp)
-BuildRequires:	perl(strict)
-BuildRequires:	perl(warnings)
-BuildRequires:	sed
+BuildRequires: coreutils
+BuildRequires: make
+BuildRequires: pandoc
+BuildRequires: perl-interpreter
+BuildRequires: perl(File::Temp)
+BuildRequires: perl(strict)
+BuildRequires: perl(warnings)
+BuildRequires: sed
 # Legacy databases fetched by cron6 sub-package no longer available
-Obsoletes:	geoipupdate-cron6 < %{version}-%{release}
+Obsoletes: geoipupdate-cron < %{version}-%{release}
+Obsoletes: geoipupdate-cron6 < %{version}-%{release}
 
 %description
 The GeoIP Update program performs automatic updates of GeoIP2 binary databases.
-
-%package cron
-Summary:	Cron job to do weekly updates of GeoIP databases
-BuildArch:	noarch
-Requires:	%{name} = %{version}-%{release}
-Requires:	crontabs
-Obsoletes:	GeoIP-update < 1.6.0
-Provides:	GeoIP-update = 1.6.0
-
-%description cron
-Cron job for weekly updates to GeoIP2 binary databases from MaxMind.
 
 %prep
 %setup
@@ -50,11 +42,14 @@ export GOPATH="%{gobuilddir}:${GOPATH:+${GOPATH}:}%{?gopath}"
 
 %build
 cd %{gobuilddir}/src/%{goipath}/cmd/geoipupdate
-export LDFLAGS='-X main.defaultConfigFile=%{_sysconfdir}/GeoIP.conf -X main.defaultDatabaseDirectory=%{_datadir}/GeoIP -X main.version=%{version}'
 go build \
-  -trimpath \
-  -buildmode=pie \
-  -o %{gobuilddir}/bin/geoipupdate .
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-extldflags \"$LDFLAGS\" -X main.defaultConfigFile=%{_sysconfdir}/GeoIP.conf -X main.defaultDatabaseDirectory=%{_datadir}/GeoIP -X main.version=%{version}" \
+    -o "%{gobuilddir}/bin/geoipupdate" \
+    .
 
 cd %{gobuilddir}/src/%{goipath}
 # Work around hardcoded "build" path in dev-bin/make-man-pages.pl
@@ -77,8 +72,9 @@ install -p -m 0644 conf/GeoIP.conf.default %{buildroot}%{_sysconfdir}/GeoIP.conf
 # Note: not using %%ghost files for default databases to avoid issues when co-existing with the geolite2 package
 install -d %{buildroot}%{_datadir}/GeoIP
 
-# Install the cron script for fetching weekly updates
-install -D -m 755 %{SOURCE1} %{buildroot}%{_sysconfdir}/cron.weekly/geoipupdate
+# Install systemd units
+install -Dm0644 %{SOURCE1} %{buildroot}%{_unitdir}/geoipupdate.service
+install -Dm0644 %{SOURCE2} %{buildroot}%{_unitdir}/geoipupdate.timer
 
 # Install the manpages
 install -d %{buildroot}%{_mandir}/man1
@@ -95,6 +91,14 @@ install -p -m 0644 %{gobuilddir}/GeoIP.conf.5 %{buildroot}%{_mandir}/man5/GeoIP.
 %dir %{_datadir}/GeoIP/
 %{_mandir}/man1/geoipupdate.1*
 %{_mandir}/man5/GeoIP.conf.5*
+%{_unitdir}/geoipupdate.service
+%{_unitdir}/geoipupdate.timer
 
-%files cron
-%config(noreplace) %{_sysconfdir}/cron.weekly/geoipupdate
+%post
+%systemd_post geoipupdate.timer
+
+%preun
+%systemd_preun geoipupdate.timer
+
+%postun
+%systemd_postun_with_restart geoipupdate.timer
