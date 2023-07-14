@@ -7,7 +7,7 @@
 %global goipath	github.com/maxmind/geoipupdate
 
 Name:    geoipupdate
-Version: 4.9.0
+Version: 6.0.0
 Release: 1%{?dist}
 Summary: Update GeoIP2 binary databases from MaxMind
 
